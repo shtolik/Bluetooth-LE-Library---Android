@@ -9,6 +9,7 @@ import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -27,6 +28,7 @@ import uk.co.alt236.bluetoothlelib.device.BluetoothLeDevice;
 import uk.co.alt236.bluetoothlelib.device.beacon.BeaconType;
 import uk.co.alt236.bluetoothlelib.device.beacon.BeaconUtils;
 import uk.co.alt236.bluetoothlelib.device.beacon.ibeacon.IBeaconDevice;
+import uk.co.alt236.bluetoothlelib.util.ByteUtils;
 import uk.co.alt236.btlescan.R;
 import uk.co.alt236.btlescan.containers.BluetoothLeDeviceStore;
 import uk.co.alt236.btlescan.ui.common.Navigation;
@@ -36,9 +38,13 @@ import uk.co.alt236.btlescan.ui.main.recyclerview.model.IBeaconItem;
 import uk.co.alt236.btlescan.ui.main.recyclerview.model.LeDeviceItem;
 import uk.co.alt236.btlescan.util.BluetoothLeScanner;
 import uk.co.alt236.btlescan.util.BluetoothUtils;
+import uk.co.alt236.btlescan.util.TimeFormatter;
 
 public class MainActivity extends AppCompatActivity {
-    @Bind(R.id.tvBluetoothLe)
+
+	private static final CharSequence KEYWORD = "Beddit";
+
+	@Bind(R.id.tvBluetoothLe)
     protected TextView mTvBluetoothLeStatus;
     @Bind(R.id.tvBluetoothStatus)
     protected TextView mTvBluetoothStatus;
@@ -55,7 +61,35 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothLeDeviceStore mDeviceStore;
     private DeviceRecyclerAdapter mRecyclerAdapter;
 
-    private final BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+	class ScanRecord {
+		String scanRecordString;
+		long timestamp;
+
+		ScanRecord(String scanRecordString, long ts){
+			timestamp = ts;
+			this.scanRecordString = scanRecordString;
+		}
+
+		public String getScanRecordString() {
+			return scanRecordString;
+		}
+
+		public long getTimestamp() {
+			return timestamp;
+		}
+
+
+		@Override
+		public String toString() {
+			return "ScanRecord{" +
+					"scanRecordString='" + scanRecordString + '\'' +
+					", timestamp=" + TimeFormatter.getIsoDateTime(timestamp) +
+					'}';
+		}
+	}
+	private List<ScanRecord> records = new ArrayList<>();
+
+	private final BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         @Override
         public void onLeScan(final BluetoothDevice device, final int rssi, final byte[] scanRecord) {
 
@@ -64,6 +98,30 @@ public class MainActivity extends AppCompatActivity {
             final List<RecyclerViewItem> itemList = new ArrayList<>();
 
             for (final BluetoothLeDevice leDevice : mDeviceStore.getDeviceList()) {
+
+	            if (leDevice!=null && leDevice.getName()!=null && leDevice.getName().contains(KEYWORD)) {
+		            String scanRecordString = ByteUtils.byteArrayToHexString(leDevice.getScanRecord());
+
+		            ScanRecord lastScanRecord = null;
+		            if (!records.isEmpty()) {
+			            lastScanRecord = records.get(records.size()-1);
+		            }
+
+		            ScanRecord newScanRecord = null;
+
+		            if (lastScanRecord == null || !lastScanRecord.getScanRecordString().equals(scanRecordString)) {
+			            newScanRecord = new ScanRecord(scanRecordString, leDevice.getTimestamp());
+			            records.add(newScanRecord);
+		            }// else {			            //didn't change		            }
+
+		            if (newScanRecord !=null){
+			            Log.d("BTLE", "onLeScan:/new scanRecord"
+					            + newScanRecord.toString()
+			            );
+		            }
+
+
+	            }
                 if (BeaconUtils.getBeaconType(leDevice) == BeaconType.IBEACON) {
                     itemList.add(new IBeaconItem(new IBeaconDevice(leDevice)));
                 } else {
@@ -94,7 +152,7 @@ public class MainActivity extends AppCompatActivity {
         updateItemCount(0);
     }
 
-    @Override
+	@Override
     public boolean onCreateOptionsMenu(final Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
         if (!mScanner.isScanning()) {

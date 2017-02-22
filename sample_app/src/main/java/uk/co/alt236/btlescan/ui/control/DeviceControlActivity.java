@@ -153,6 +153,7 @@ public class DeviceControlActivity extends AppCompatActivity {
                 final String uuid = intent.getStringExtra(BluetoothLeService.EXTRA_UUID_CHAR);
                 final byte[] dataArr = intent.getByteArrayExtra(BluetoothLeService.EXTRA_DATA_RAW);
 
+                Log.d(TAG, "onReceive: " + uuid + ":" + ByteUtils.byteArrayToHexString(dataArr));
                 mGattUUID.setText(tryString(uuid, noData));
                 mGattUUIDDesc.setText(GattAttributeResolver.getAttributeName(uuid, getString(R.string.unknown)));
                 mDataAsArray.setText(ByteUtils.byteArrayToHexString(dataArr));
